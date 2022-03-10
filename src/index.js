@@ -1,28 +1,10 @@
 const axios = require('axios');
-const AWS = require('aws-sdk');
+const getSecrets = require('./getSecrets');
 const notFollowingResponse = require('./notFollowingResponse');
 const invalidUserResponse = require('./invalidUserResponse');
 const followingResponse = require('./followingResponse');
 
-const region = process.env.SECRETS_REGION;
-const secretName = process.env.SECRETS_ARN;
-
-const secretsManager = new AWS.SecretsManager({ region });
-
 let client_id, access_token;
-
-// Gets credentials for the twitch api calls from our secret store
-function getSecret() {
-  return new Promise((resolve, reject) => {
-    secretsManager.getSecretValue(
-      { SecretId: secretName },
-      function (err, data) {
-        if (err) reject(err);
-        else resolve(JSON.parse(data.SecretString));
-      },
-    );
-  });
-}
 
 function headers() {
   return {
@@ -71,10 +53,11 @@ async function handler(event) {
   let userData, followData;
 
   try {
-    ({ client_id, access_token } = await getSecret());
+    ({ client_id, access_token } = await getSecrets);
     userData = await getUser(user);
     if (userData) followData = await getFollow(userData.id);
   } catch (e) {
+    console.error(e);
     return {
       statusCode: 500,
       body: 'Internal Server Error',
@@ -97,17 +80,11 @@ async function handler(event) {
 
   return {
     statusCode: 200,
-    headers: {
-      'Content-Type': 'text/html',
-    },
+    headers: { 'Content-Type': 'text/html' },
     body: html,
   };
 }
 
 module.exports = {
-  getSecret,
-  getUser,
-  getFollow,
   handler,
-  headers,
 };
